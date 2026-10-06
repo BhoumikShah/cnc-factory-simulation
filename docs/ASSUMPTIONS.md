@@ -36,6 +36,12 @@ All physical, mechanical, operational, and mathematical assumptions are cataloge
 - **Wear Accumulation**: Cutting wear accrues in effective cut-minutes:
   $$\Delta W = \Delta t \times M_{\text{material}} \times F_{\text{feed\_speed}}$$
   where $M_{\text{material}}$ is the workpiece machinability factor (e.g., Titanium Gr5 = 2.5, Inconel 718 = 3.0, Aluminum 6061 = 0.4, 4140 Steel = 1.0).
+- **Extended Taylor Tool Life Equation**:
+  $$V \cdot T^n \cdot f^a \cdot d_c^b = C \implies T = \left(\frac{C}{V \cdot f^a \cdot d_c^b}\right)^{1/n}$$
+  where $V$ is cutting speed (m/min), $f$ is feed per rev (mm/rev), $d_c$ is depth of cut (mm), $n$ is Taylor exponent ($0.18-0.35$ for carbide), and $C$ is material constant.
+- **ISO 3685 Flank Wear Progression**:
+  $$VB(t) = VB_0 + (VB_{\text{limit}} - VB_0) \cdot \left(\frac{t}{T_{\text{nominal}}}\right)^\gamma$$
+  where $VB_0 = 0.02\text{ mm}$ (initial micro-breakdown), $VB_{\text{limit}} = 0.30\text{ mm}$ (catastrophic failure threshold), and $\gamma = 1.4$ (wear acceleration exponent).
 - **Tool Life Distribution**: Tool degradation to catastrophic failure or excessive flank wear ($VB > 0.3\text{ mm}$) follows a 2-parameter Weibull distribution with shape parameter $\beta \in [2.5, 3.5]$ and scale parameter $\eta \in [60, 240]\text{ minutes}$.
 - **Tool Change Duration**:
   - Auto-tool change (ATC from local magazine): $0.1\text{ minutes}$ ($6\text{ seconds}$).

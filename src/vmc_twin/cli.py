@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from vmc_twin.config.loader import ConfigLoader
 from vmc_twin.data.store import EventStore
 from vmc_twin.report.kpis import KPICalculator
 from vmc_twin.report.plots import PlotlyVisualizer
@@ -407,6 +408,163 @@ def tournament(
         )
 
     console.print(table)
+
+
+@app.command()
+def predict_wear(
+    scenario_path: str = typer.Argument(
+        "configs/scenarios/baseline.yaml", help="Path to scenario YAML"
+    ),
+) -> None:
+    """Evaluates cutting tool degradation, Weibull failure risks, and generates proactive replacement schedules."""
+    p = Path(scenario_path)
+    if not p.exists():
+        console.print(f"[bold red]Error: Scenario file not found at {p}[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold cyan]Running tool wear prognostics on {p}...[/bold cyan]")
+    scenario = ConfigLoader.load_scenario(p)
+    shop_dir = Path(scenario.shop_config_dir)
+    tools_cfg = ConfigLoader.load_tools(shop_dir / "tools.yaml")
+
+    from vmc_twin.predict.tool_wear import ToolReplacementRecommender, WearRiskLevel
+
+    table = Table(
+        title="Cutting Tool Degradation & Prognostic Health Assessment",
+        show_header=True,
+        header_style="bold green",
+    )
+    table.add_column("Tool ID", style="bold")
+    table.add_column("Tool Type")
+    table.add_column("Acc Cut Time", justify="right")
+    table.add_column("Flank Wear (VB)", justify="right")
+    table.add_column("Expected RUL", justify="right")
+    table.add_column("P(Fail Next Op)", justify="right")
+    table.add_column("Risk Level", justify="center")
+    table.add_column("Prescribed Action")
+
+    # Sample tool instances across degradation spectrum
+    sample_cut_fractions = [0.15, 0.45, 0.70, 0.88, 0.98]
+    for idx, t in enumerate(tools_cfg):
+        frac = sample_cut_fractions[idx % len(sample_cut_fractions)]
+        accum_minutes = t.nominal_life_minutes * frac
+        assessment = ToolReplacementRecommender.evaluate_tool(
+            tool_id=f"TL-{t.tool_type[:6]}-{idx+1:02d}",
+            tool_type=t.tool_type,
+            accumulated_cut_minutes=accum_minutes,
+            nominal_life_minutes=t.nominal_life_minutes,
+            weibull_shape=t.weibull_shape,
+            weibull_scale=t.weibull_scale,
+            next_op_duration_minutes=20.0,
+        )
+
+        risk_style = {
+            WearRiskLevel.NOMINAL: "[green]NOMINAL[/green]",
+            WearRiskLevel.MONITOR: "[yellow]MONITOR[/yellow]",
+            WearRiskLevel.MAINTENANCE_REQUIRED: "[bold orange3]REPLACE[/bold orange3]",
+            WearRiskLevel.CRITICAL: "[bold red]CRITICAL[/bold red]",
+        }.get(assessment.risk_level, assessment.risk_level.value)
+
+        table.add_row(
+            assessment.tool_id,
+            assessment.tool_type,
+            f"{assessment.accumulated_cut_minutes:.1f} m",
+            f"{assessment.flank_wear_vb_mm:.3f} mm",
+            f"{assessment.expected_rul_minutes:.1f} m",
+            f"{assessment.p_fail_next_operation * 100:.1f}%",
+            risk_style,
+            assessment.recommendation,
+        )
+
+    console.print(table)
+
+
+@app.command()
+def report(
+    scenario_path: str = typer.Argument(
+        "configs/scenarios/baseline.yaml", help="Path to scenario YAML"
+    ),
+    output: str = typer.Option("outputs/report.html", "--output", "-o", help="Output path for unified HTML report"),
+) -> None:
+    """Generates full-spectrum unified digital twin HTML report (Gantt, KPIs, Diagnostics, Pareto & Tool Wear)."""
+    p = Path(scenario_path)
+    if not p.exists():
+        console.print(f"[bold red]Error: Scenario file not found at {p}[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold green]Generating Comprehensive Digital Twin Report for: {p}...[/bold green]")
+    engine = SimulationEngine.from_scenario_file(p)
+    sim_result = engine.run()
+
+    kpis = KPICalculator.calculate(
+        scenario_name=sim_result.scenario_name,
+        horizon_minutes=sim_result.duration_minutes,
+        events=sim_result.events,
+        jobs=engine.jobs,
+    )
+
+    # 1. Expert Diagnostics
+    from vmc_twin.rules import FactExtractor, create_default_rule_engine
+
+    facts = FactExtractor.extract(
+        kpis=kpis,
+        events=sim_result.events,
+        window_minutes=engine.scenario.diagnosis.window_duration_minutes,
+    )
+    rule_engine = create_default_rule_engine()
+    trace = rule_engine.diagnose(facts, thresholds=engine.scenario.diagnosis)
+
+    # 2. Pareto Bake-off
+    from vmc_twin.optimize.pareto import TournamentRunner
+
+    benchmarks = TournamentRunner.run_bakeoff(
+        scenario_path=p,
+        policies=("FIFO", "EDD", "SPT", "SLACK", "ATC"),
+        seeds=[engine.scenario.random_seed],
+        optimizer_time_limit=5.0,
+    )
+
+    # 3. Tool Wear Assessments
+    from vmc_twin.predict.tool_wear import ToolReplacementRecommender
+
+    shop_dir = Path(engine.scenario.shop_config_dir)
+    tools_cfg = ConfigLoader.load_tools(shop_dir / "tools.yaml")
+    tool_assessments = []
+    sample_cut_fractions = [0.20, 0.50, 0.75, 0.90, 0.96]
+    for idx, t in enumerate(tools_cfg):
+        frac = sample_cut_fractions[idx % len(sample_cut_fractions)]
+        assessment = ToolReplacementRecommender.evaluate_tool(
+            tool_id=f"TL-{t.tool_type[:6]}-{idx+1:02d}",
+            tool_type=t.tool_type,
+            accumulated_cut_minutes=t.nominal_life_minutes * frac,
+            nominal_life_minutes=t.nominal_life_minutes,
+            weibull_shape=t.weibull_shape,
+            weibull_scale=t.weibull_scale,
+            next_op_duration_minutes=15.0,
+        )
+        tool_assessments.append(assessment)
+
+    # 4. Generate Unified Dashboard
+    from vmc_twin.report.dashboard import UnifiedDashboardGenerator
+
+    report_path = UnifiedDashboardGenerator.generate_report(
+        kpis=kpis,
+        events=sim_result.events,
+        diagnostic_trace=trace,
+        benchmarks=benchmarks,
+        tool_assessments=tool_assessments,
+        output_path=output,
+    )
+
+    console.print(
+        Panel.fit(
+            f"[bold green]Report successfully generated![/bold green]\n"
+            f"[cyan]Output File:[/cyan] {report_path.resolve()}\n"
+            f"Open this file directly in any modern browser for interactive exploration.",
+            title="Unified Digital Twin Report",
+            border_style="green",
+        )
+    )
 
 
 if __name__ == "__main__":
