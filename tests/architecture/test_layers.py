@@ -28,11 +28,11 @@ def test_domain_has_no_external_dependencies() -> None:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split(".")[0]
-                    assert (
-                        root in allowed_stdlib_roots
-                    ), f"Domain file {py_file.name} imports forbidden root '{root}' (must be stdlib/pure)"
+                    assert root in allowed_stdlib_roots, (
+                        f"Domain file {py_file.name} imports forbidden root '{root}' (must be stdlib/pure)"
+                    )
             elif isinstance(node, ast.ImportFrom) and node.module:
                 root = node.module.split(".")[0]
-                assert (
-                    root in allowed_stdlib_roots
-                ), f"Domain file {py_file.name} imports forbidden module '{root}'"
+                assert root in allowed_stdlib_roots, (
+                    f"Domain file {py_file.name} imports forbidden module '{root}'"
+                )

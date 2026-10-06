@@ -8,6 +8,7 @@ from vmc_twin.domain.states import SpindleState
 @dataclass(frozen=True, slots=True)
 class MachineSpec:
     """Static capabilities and configuration of a Vertical Machining Center."""
+
     machine_id: str
     machine_type: str
     spindle_power_kw: float
@@ -23,6 +24,7 @@ class MachineSpec:
 @dataclass(slots=True)
 class Machine:
     """Dynamic operational state of a physical VMC unit."""
+
     spec: MachineSpec
     current_state: SpindleState = SpindleState.OFF_SHIFT
     current_fixture: str | None = None

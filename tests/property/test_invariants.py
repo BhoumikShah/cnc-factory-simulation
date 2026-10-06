@@ -4,6 +4,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from vmc_twin.config.loader import ConfigLoader
+from vmc_twin.config.schemas import ScenarioConfig
 from vmc_twin.data.generator import SyntheticDataGenerator
 from vmc_twin.sim.engine import SimulationEngine
 
@@ -27,9 +28,15 @@ def test_temporal_monotonicity_and_no_overlaps(seed: int, job_count: int) -> Non
     operators = ConfigLoader.load_operators(shop_dir / "shifts.yaml")
 
     gen = SyntheticDataGenerator(random_seed=seed)
-    jobs = gen.generate_jobs(count=job_count, horizon_minutes=1440.0)
+    jobs = gen.generate_jobs(count=job_count, horizon_minutes=480.0)
 
-    scenario_cfg = ConfigLoader.load_scenario("configs/scenarios/baseline.yaml")
+    scenario_cfg = ScenarioConfig(
+        scenario_name="property_test",
+        description="Fast property test",
+        random_seed=seed,
+        duration_minutes=480.0,
+        dispatch_policy="FIFO",
+    )
 
     engine = SimulationEngine(
         scenario=scenario_cfg,

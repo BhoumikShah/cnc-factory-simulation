@@ -71,7 +71,9 @@ class ConfigLoader:
         ]
 
     @classmethod
-    def load_fixtures(cls, file_path: Path | str) -> tuple[list[FixtureSpec], FixtureTransitionMatrix]:
+    def load_fixtures(
+        cls, file_path: Path | str
+    ) -> tuple[list[FixtureSpec], FixtureTransitionMatrix]:
         data = cls._read_yaml(file_path)
         parsed = FixturesShopConfig.model_validate(data)
         specs = [

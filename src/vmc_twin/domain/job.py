@@ -9,6 +9,7 @@ from vmc_twin.domain.operation import Operation
 @dataclass(frozen=True, slots=True)
 class Job:
     """Production work order consisting of sequential machining operations."""
+
     job_id: str
     part_name: str
     material: str

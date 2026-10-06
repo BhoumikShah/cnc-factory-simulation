@@ -46,9 +46,7 @@ class EventStore:
             self.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_machine_time ON events(machine_id, t_start, t_end);"
             )
-            self.conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_events_state ON events(state);"
-            )
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_events_state ON events(state);")
 
     def insert_event(self, event: Event) -> None:
         """Inserts a single simulation event."""

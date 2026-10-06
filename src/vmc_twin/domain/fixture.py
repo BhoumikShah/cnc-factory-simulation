@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class FixtureSpec:
     """Fixture model for clamping workpieces onto machine table/pallet."""
+
     fixture_id: str
     fixture_type: str
     description: str
@@ -16,6 +17,7 @@ class FixtureSpec:
 @dataclass(frozen=True, slots=True)
 class FixtureTransitionMatrix:
     """Sequence-dependent setup transition times between fixture types in minutes."""
+
     transitions: Mapping[str, Mapping[str, float]]
     default_setup_minutes: float = 15.0
 

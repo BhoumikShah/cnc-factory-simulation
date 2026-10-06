@@ -9,6 +9,7 @@ from vmc_twin.domain.states import SkillLevel
 @dataclass(frozen=True, slots=True)
 class Operator:
     """Operator entity responsible for fixture setups and tool maintenance."""
+
     operator_id: str
     name: str
     skill_level: SkillLevel

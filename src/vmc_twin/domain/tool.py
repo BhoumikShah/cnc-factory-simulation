@@ -6,6 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class ToolSpec:
     """Specification of a CNC cutting tool class."""
+
     tool_type: str
     description: str
     nominal_life_minutes: float
@@ -18,6 +19,7 @@ class ToolSpec:
 @dataclass(slots=True)
 class ToolInstance:
     """Individual physical cutting tool tracking accumulated cut time."""
+
     tool_id: str
     tool_type: str
     accumulated_cut_minutes: float = 0.0
@@ -40,6 +42,7 @@ class ToolInstance:
 @dataclass(frozen=True, slots=True)
 class ToolState:
     """Observed operational state of a tool for prognostic models."""
+
     tool_id: str
     tool_type: str
     accumulated_cut_minutes: float
@@ -51,6 +54,7 @@ class ToolState:
 @dataclass(frozen=True, slots=True)
 class ToolLifeDistribution:
     """Predicted tool life probability parameters."""
+
     mean_remaining_minutes: float
     std_remaining_minutes: float
     p_failure_next_operation: float  # probability of failure during next planned cut

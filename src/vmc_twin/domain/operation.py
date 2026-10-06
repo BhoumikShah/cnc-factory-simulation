@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True, slots=True)
 class ToolRequirement:
     """Tool specification and estimated cut minutes for an operation."""
+
     tool_type: str
     cut_minutes: float
     wear_factor: float = 1.0
@@ -15,6 +16,7 @@ class ToolRequirement:
 @dataclass(frozen=True, slots=True)
 class Operation:
     """Single discrete machining operation belonging to a Job routing."""
+
     op_id: str
     job_id: str
     sequence_num: int

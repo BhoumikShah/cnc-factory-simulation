@@ -15,6 +15,7 @@ class ShopFloorResources:
     - Operator pool with skill qualifications
     - Tool crib stock with wear tracking and replenishments
     - Shared fixture units
+    - Maintenance technician pool
     """
 
     def __init__(
@@ -25,6 +26,7 @@ class ShopFloorResources:
         transition_matrix: FixtureTransitionMatrix,
         tool_specs: Sequence[ToolSpec],
         initial_crib_stock: Mapping[str, int] | None = None,
+        maintenance_tech_count: int = 2,
     ) -> None:
         self.env = env
         self.operators = list(operators)
@@ -32,6 +34,9 @@ class ShopFloorResources:
 
         # Operator resource pool
         self.operator_resource = simpy.Resource(env, capacity=max(1, len(operators)))
+
+        # Maintenance technicians
+        self.maintenance_resource = simpy.Resource(env, capacity=max(1, maintenance_tech_count))
 
         # Fixture resources by fixture_id
         self.fixtures: dict[str, simpy.Resource] = {}
@@ -41,13 +46,13 @@ class ShopFloorResources:
         # Tool crib stock: tool_type -> list of ToolInstance
         self.tool_crib: dict[str, list[ToolInstance]] = {}
         self.tool_specs: dict[str, ToolSpec] = {ts.tool_type: ts for ts in tool_specs}
-        
+
         default_stock = initial_crib_stock or {}
         for ts in tool_specs:
             qty = default_stock.get(ts.tool_type, 10)
             self.tool_crib[ts.tool_type] = [
                 ToolInstance(
-                    tool_id=f"{ts.tool_type}_{i+1:03d}",
+                    tool_id=f"{ts.tool_type}_{i + 1:03d}",
                     tool_type=ts.tool_type,
                     life_limit_minutes=ts.nominal_life_minutes,
                 )

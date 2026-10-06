@@ -17,23 +17,77 @@ class SyntheticDataGenerator:
     PART_TEMPLATES: Mapping[str, list[tuple[str, str, float, str, list[str]]]] = {
         # part_family: [(op_name, required_fixture, nominal_minutes, machine_type_req, [tool_types])]
         "AEROSPACE_BRACKET": [
-            ("OP10_FACE_AND_DATUMS", "VISE_6INCH_DUAL", 18.0, "VMC_3AXIS_STD", ["FACEMILL_50MM", "ENDMILL_12MM_CARBIDE"]),
-            ("OP20_POCKET_AND_HOLES", "VISE_6INCH_DUAL", 32.0, "VMC_3AXIS_STD", ["ENDMILL_12MM_CARBIDE", "DRILL_8_5MM", "TAP_M10"]),
-            ("OP30_5AXIS_PROFILING", "TOMBSTONE_4SIDED", 45.0, "VMC_5AXIS_HIGH_SPEED", ["BALLNOSE_6MM", "CHAMFER_MILL_45DEG"]),
+            (
+                "OP10_FACE_AND_DATUMS",
+                "VISE_6INCH_DUAL",
+                18.0,
+                "VMC_3AXIS_STD",
+                ["FACEMILL_50MM", "ENDMILL_12MM_CARBIDE"],
+            ),
+            (
+                "OP20_POCKET_AND_HOLES",
+                "VISE_6INCH_DUAL",
+                32.0,
+                "VMC_3AXIS_STD",
+                ["ENDMILL_12MM_CARBIDE", "DRILL_8_5MM", "TAP_M10"],
+            ),
+            (
+                "OP30_5AXIS_PROFILING",
+                "TOMBSTONE_4SIDED",
+                45.0,
+                "VMC_5AXIS_HIGH_SPEED",
+                ["BALLNOSE_6MM", "CHAMFER_MILL_45DEG"],
+            ),
         ],
         "PRISMATIC_VALVE_BODY": [
             ("OP10_ROUGH_6FACES", "TOMBSTONE_4SIDED", 35.0, "VMC_3AXIS_HEAVY", ["FACEMILL_50MM"]),
-            ("OP20_BORES_AND_PORTS", "CHUCK_4JAW_SCROLL", 40.0, "VMC_3AXIS_HEAVY", ["ENDMILL_12MM_CARBIDE", "DRILL_8_5MM", "TAP_M10"]),
-            ("OP30_FINISH_PASSES", "VISE_6INCH_DUAL", 15.0, "VMC_3AXIS_STD", ["CHAMFER_MILL_45DEG"]),
+            (
+                "OP20_BORES_AND_PORTS",
+                "CHUCK_4JAW_SCROLL",
+                40.0,
+                "VMC_3AXIS_HEAVY",
+                ["ENDMILL_12MM_CARBIDE", "DRILL_8_5MM", "TAP_M10"],
+            ),
+            (
+                "OP30_FINISH_PASSES",
+                "VISE_6INCH_DUAL",
+                15.0,
+                "VMC_3AXIS_STD",
+                ["CHAMFER_MILL_45DEG"],
+            ),
         ],
         "IMPELLER_BLISK": [
-            ("OP10_ROUGH_BLISK", "CHUCK_4JAW_SCROLL", 50.0, "VMC_5AXIS_HIGH_SPEED", ["FACEMILL_50MM", "ENDMILL_12MM_CARBIDE"]),
-            ("OP20_5AXIS_BLADES", "CHUCK_4JAW_SCROLL", 90.0, "VMC_5AXIS_HIGH_SPEED", ["BALLNOSE_6MM"]),
-            ("OP30_CHAMFER_DEBURR", "CHUCK_4JAW_SCROLL", 12.0, "VMC_3AXIS_STD", ["CHAMFER_MILL_45DEG"]),
+            (
+                "OP10_ROUGH_BLISK",
+                "CHUCK_4JAW_SCROLL",
+                50.0,
+                "VMC_5AXIS_HIGH_SPEED",
+                ["FACEMILL_50MM", "ENDMILL_12MM_CARBIDE"],
+            ),
+            (
+                "OP20_5AXIS_BLADES",
+                "CHUCK_4JAW_SCROLL",
+                90.0,
+                "VMC_5AXIS_HIGH_SPEED",
+                ["BALLNOSE_6MM"],
+            ),
+            (
+                "OP30_CHAMFER_DEBURR",
+                "CHUCK_4JAW_SCROLL",
+                12.0,
+                "VMC_3AXIS_STD",
+                ["CHAMFER_MILL_45DEG"],
+            ),
         ],
         "THINWALL_COVER_PLATE": [
             ("OP10_SURFACE_GRID", "VACUUM_FIXTURE_PLATE", 22.0, "VMC_3AXIS_STD", ["FACEMILL_50MM"]),
-            ("OP20_PERIMETER_SLOTS", "VACUUM_FIXTURE_PLATE", 28.0, "VMC_3AXIS_STD", ["ENDMILL_12MM_CARBIDE", "CHAMFER_MILL_45DEG"]),
+            (
+                "OP20_PERIMETER_SLOTS",
+                "VACUUM_FIXTURE_PLATE",
+                28.0,
+                "VMC_3AXIS_STD",
+                ["ENDMILL_12MM_CARBIDE", "CHAMFER_MILL_45DEG"],
+            ),
         ],
     }
 
@@ -82,7 +136,9 @@ class SyntheticDataGenerator:
 
             job_id = f"JOB-{i + 1:04d}"
 
-            for seq_idx, (op_name, fix_req, nom_mins, mtype_req, req_tools) in enumerate(template_ops):
+            for seq_idx, (op_name, fix_req, nom_mins, mtype_req, req_tools) in enumerate(
+                template_ops
+            ):
                 op_id = f"{job_id}-OP{seq_idx + 1}"
                 # Add minor duration variance (+- 10%)
                 adjusted_nominal = nom_mins * float(self.rng.uniform(0.9, 1.1))

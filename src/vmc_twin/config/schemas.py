@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class MachineConfig(BaseModel):
     """Pydantic model for machine specification."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine_id: str
@@ -106,6 +107,7 @@ class ShiftsShopConfig(BaseModel):
 
 class ScenarioConfig(BaseModel):
     """Configuration for an end-to-end simulation or optimization run."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     scenario_name: str
@@ -120,5 +122,6 @@ class ScenarioConfig(BaseModel):
     workpiece_mix: Mapping[str, float] = Field(
         default_factory=lambda: {"Aluminum_6061": 0.5, "Steel_4140": 0.3, "Titanium_Gr5": 0.2}
     )
+    enable_breakdowns: bool = False
     injected_faults: Mapping[str, bool] = Field(default_factory=dict)
     optimizer_time_limit_seconds: float = Field(default=30.0, gt=0)

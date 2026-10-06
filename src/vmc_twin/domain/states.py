@@ -5,6 +5,7 @@ from enum import IntEnum, StrEnum
 
 class SpindleState(StrEnum):
     """Mutually exclusive states of a CNC VMC spindle."""
+
     CUTTING = "CUTTING"
     SETUP = "SETUP"
     TOOL_CHANGE = "TOOL_CHANGE"
@@ -20,6 +21,7 @@ class SpindleState(StrEnum):
 
 class CauseCode(StrEnum):
     """Detailed causal categorization for idle, setup, or breakdown states."""
+
     NONE = "NONE"
     NO_QUEUE_JOB = "NO_QUEUE_JOB"
     OPERATOR_UNAVAILABLE = "OPERATOR_UNAVAILABLE"
@@ -36,6 +38,7 @@ class CauseCode(StrEnum):
 
 class RuleSeverity(StrEnum):
     """Severity classification for expert diagnostic findings."""
+
     INFO = "INFO"
     WARNING = "WARNING"
     CRITICAL = "CRITICAL"
@@ -43,6 +46,7 @@ class RuleSeverity(StrEnum):
 
 class SkillLevel(IntEnum):
     """Operator proficiency tier affecting setup duration."""
+
     JUNIOR = 1
     STANDARD = 2
     SENIOR = 3

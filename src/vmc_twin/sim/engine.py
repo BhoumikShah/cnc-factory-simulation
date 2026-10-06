@@ -16,6 +16,7 @@ from vmc_twin.domain.job import Job
 from vmc_twin.domain.machine import Machine, MachineSpec
 from vmc_twin.domain.operator import Operator
 from vmc_twin.domain.tool import ToolSpec
+from vmc_twin.sim.breakdowns import BreakdownProcess
 from vmc_twin.sim.dispatcher import (
     DispatchPolicy,
     EDDDispatchPolicy,
@@ -31,11 +32,13 @@ from vmc_twin.sim.event_bus import (
 from vmc_twin.sim.machine_process import MachineProcess
 from vmc_twin.sim.resources import ShopFloorResources
 from vmc_twin.sim.rng import RNGManager
+from vmc_twin.sim.shifts import ShiftCalendarManager
 
 
 @dataclass
 class SimulationRunResult:
     """Encapsulates the execution results of a simulation run."""
+
     scenario_name: str
     duration_minutes: float
     total_events: int
@@ -174,6 +177,24 @@ class SimulationEngine:
                 completed_jobs=completed_jobs,
                 in_progress_job_ids=in_progress_jobs,
             )
+            # Launch stochastic breakdown process for each machine if enabled
+            if self.scenario.enable_breakdowns:
+                BreakdownProcess(
+                    env=env,
+                    machine=m,
+                    maintenance_resource=resources.maintenance_resource,
+                    event_sink=broadcast_sink,
+                    rng_manager=self.rng_manager,
+                )
+
+        # Launch shift calendar manager
+        ShiftCalendarManager(
+            env=env,
+            shift_configs=[],
+            machines=machines,
+            event_sink=broadcast_sink,
+            enable_shift_downtime=False,
+        )
 
         # Execute simulation
         env.run(until=self.scenario.duration_minutes)

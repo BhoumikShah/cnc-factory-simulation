@@ -12,6 +12,7 @@ from vmc_twin.domain.operation import Operation
 @dataclass(frozen=True, slots=True)
 class DispatchContext:
     """Current shop floor state presented to dispatch policies."""
+
     current_time: float
     machine: Machine
     available_jobs: Sequence[Job]
@@ -25,8 +26,7 @@ class DispatchPolicy(Protocol):
     """Protocol for dynamic job dispatching and sequencing rules."""
 
     @property
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     def select_next_job(self, context: DispatchContext) -> tuple[Job, Operation] | None:
         """Select next (Job, Operation) to process on the requesting machine."""
@@ -112,5 +112,7 @@ class SPTDispatchPolicy:
         if not eligible:
             return None
 
-        eligible.sort(key=lambda item: (item[1].nominal_cycle_minutes, item[0].due_date, item[0].job_id))
+        eligible.sort(
+            key=lambda item: (item[1].nominal_cycle_minutes, item[0].due_date, item[0].job_id)
+        )
         return eligible[0]

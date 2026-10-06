@@ -13,6 +13,7 @@ class Event:
     Immutable discrete event contract emitted by the simulation engine.
     Every KPI, Gantt timeline, and expert rule fact can be reconstructed from this record.
     """
+
     t_start: float
     t_end: float
     machine_id: str

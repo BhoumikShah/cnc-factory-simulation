@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Generator
 from typing import Any
 
@@ -71,7 +72,7 @@ class MachineProcess:
                 # Wait 5 minutes or until next job arrives
                 yield self.env.timeout(5.0)
                 t_starve_end = self.env.now
-                self.machine.accumulated_idle_minutes += (t_starve_end - t_starve_start)
+                self.machine.accumulated_idle_minutes += t_starve_end - t_starve_start
                 self.event_sink.on_event(
                     Event(
                         t_start=t_starve_start,
@@ -94,7 +95,7 @@ class MachineProcess:
                 self.machine.current_state = SpindleState.IDLE_STARVED
                 yield self.env.timeout(wait_time)
                 t_wait_end = self.env.now
-                self.machine.accumulated_idle_minutes += (t_wait_end - t_wait_start)
+                self.machine.accumulated_idle_minutes += t_wait_end - t_wait_start
                 self.event_sink.on_event(
                     Event(
                         t_start=t_wait_start,
@@ -114,7 +115,7 @@ class MachineProcess:
             try:
                 # 2. Setup Phase: Fixture setup and operator acquisition
                 needed_fixture = operation.required_fixture
-                needs_fixture_change = (self.machine.current_fixture != needed_fixture)
+                needs_fixture_change = self.machine.current_fixture != needed_fixture
 
                 if needs_fixture_change:
                     t_wait_setup = self.env.now
@@ -126,7 +127,7 @@ class MachineProcess:
 
                     t_operator_acquired = self.env.now
                     if t_operator_acquired > t_wait_setup:
-                        self.machine.accumulated_idle_minutes += (t_operator_acquired - t_wait_setup)
+                        self.machine.accumulated_idle_minutes += t_operator_acquired - t_wait_setup
                         self.event_sink.on_event(
                             Event(
                                 t_start=t_wait_setup,
@@ -148,7 +149,11 @@ class MachineProcess:
                         base_setup = operation.base_manual_setup_minutes
 
                     # Apply Pallet APC modifier if applicable
-                    pallet_mod = self.machine.spec.pallet_setup_factor if self.machine.spec.has_pallet_changer else 1.0
+                    pallet_mod = (
+                        self.machine.spec.pallet_setup_factor
+                        if self.machine.spec.has_pallet_changer
+                        else 1.0
+                    )
                     setup_duration = base_setup * pallet_mod
 
                     t_setup_start = self.env.now
@@ -156,7 +161,7 @@ class MachineProcess:
                     yield self.env.timeout(setup_duration)
                     t_setup_end = self.env.now
 
-                    self.machine.accumulated_setup_minutes += (t_setup_end - t_setup_start)
+                    self.machine.accumulated_setup_minutes += t_setup_end - t_setup_start
                     self.machine.current_fixture = needed_fixture
                     self.resources.operator_resource.release(op_request)
 
@@ -187,7 +192,7 @@ class MachineProcess:
                             # Wait for crib replenishment
                             yield self.env.timeout(10.0)
                             t_tool_ready = self.env.now
-                            self.machine.accumulated_idle_minutes += (t_tool_ready - t_tool_req)
+                            self.machine.accumulated_idle_minutes += t_tool_ready - t_tool_req
                             self.event_sink.on_event(
                                 Event(
                                     t_start=t_tool_req,
@@ -214,7 +219,11 @@ class MachineProcess:
                         self.mounted_tools[t_type] = tool_inst
 
                         t_tc_start = self.env.now
-                        tc_duration = 0.1 if self.machine.spec.magazine_capacity > len(self.mounted_tools) else 2.5
+                        tc_duration = (
+                            0.1
+                            if self.machine.spec.magazine_capacity > len(self.mounted_tools)
+                            else 2.5
+                        )
                         yield self.env.timeout(tc_duration)
                         t_tc_end = self.env.now
                         self.event_sink.on_event(
@@ -231,19 +240,21 @@ class MachineProcess:
                         )
 
                 # 4. Machining / Cutting Phase
-                mean_duration = operation.nominal_cycle_minutes
-                cv = operation.cycle_time_cv
-                sigma = (cv**2 + 1.0) ** 0.5
-                mu = mean_duration / sigma
-                actual_duration = float(self.rng.lognormal(mean=mu, sigma=cv))
-                actual_duration = max(mean_duration * 0.5, min(mean_duration * 2.0, actual_duration))
+                mean_duration = max(0.1, operation.nominal_cycle_minutes)
+                cv = max(0.001, operation.cycle_time_cv)
+                sigma_norm = (math.log(1.0 + cv**2)) ** 0.5
+                mu_norm = math.log(mean_duration) - 0.5 * (sigma_norm**2)
+                actual_duration = float(self.rng.lognormal(mean=mu_norm, sigma=sigma_norm))
+                actual_duration = max(
+                    mean_duration * 0.5, min(mean_duration * 2.0, actual_duration)
+                )
 
                 t_cut_start = self.env.now
                 self.machine.current_state = SpindleState.CUTTING
                 yield self.env.timeout(actual_duration)
                 t_cut_end = self.env.now
 
-                self.machine.accumulated_cutting_minutes += (t_cut_end - t_cut_start)
+                self.machine.accumulated_cutting_minutes += t_cut_end - t_cut_start
 
                 for req_tool in operation.tool_requirements:
                     t_type = req_tool.tool_type
@@ -272,10 +283,14 @@ class MachineProcess:
                 )
 
                 # 5. Operation Completion & Safe State Update
-                job_idx = next((i for i, j in enumerate(self.active_jobs) if j.job_id == job.job_id), None)
+                job_idx = next(
+                    (i for i, j in enumerate(self.active_jobs) if j.job_id == job.job_id), None
+                )
                 if job_idx is not None:
                     current_job = self.active_jobs[job_idx]
-                    remaining_ops = [op for op in current_job.operations if op.op_id != operation.op_id]
+                    remaining_ops = [
+                        op for op in current_job.operations if op.op_id != operation.op_id
+                    ]
                     if remaining_ops:
                         updated_job = Job(
                             job_id=current_job.job_id,
