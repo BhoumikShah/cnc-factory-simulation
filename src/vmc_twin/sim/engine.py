@@ -137,10 +137,22 @@ class SimulationEngine:
                 return EDDDispatchPolicy()
             case "SPT":
                 return SPTDispatchPolicy()
+            case "SLACK":
+                from vmc_twin.sim.dispatcher import SlackDispatchPolicy
+
+                return SlackDispatchPolicy()
+            case "ATC":
+                from vmc_twin.sim.dispatcher import ATCDispatchPolicy
+
+                return ATCDispatchPolicy()
             case _:
                 return FIFODispatchPolicy()
 
-    def run(self, single_machine_id: str | None = None) -> SimulationRunResult:
+    def run(
+        self,
+        single_machine_id: str | None = None,
+        custom_dispatcher: DispatchPolicy | None = None,
+    ) -> SimulationRunResult:
         """Executes the simulation run until scenario.duration_minutes."""
         env = simpy.Environment()
 
@@ -181,7 +193,7 @@ class SimulationEngine:
 
         # Instantiate dynamic machine states
         machines = [Machine(spec=spec) for spec in specs_to_run]
-        dispatcher = self._resolve_dispatcher(self.scenario.dispatch_policy)
+        dispatcher = custom_dispatcher or self._resolve_dispatcher(self.scenario.dispatch_policy)
 
         active_jobs = list(self.jobs)
         completed_jobs: list[Job] = []

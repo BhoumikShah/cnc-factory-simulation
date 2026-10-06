@@ -262,5 +262,152 @@ def diagnose(
         console.print(f"[bold green]JSON findings saved to {json_path.resolve()}[/bold green]")
 
 
+@app.command()
+def optimize(
+    scenario_path: str = typer.Argument(
+        "configs/scenarios/baseline.yaml", help="Path to scenario YAML"
+    ),
+    time_limit: float = typer.Option(
+        30.0, "--time-limit", help="CP-SAT optimizer time limit in seconds"
+    ),
+    html_out: str = typer.Option(
+        "outputs/optimized_gantt.html", "--html", help="Path for optimized interactive HTML dashboard"
+    ),
+) -> None:
+    """Solves mathematical CP-SAT scheduling optimization and simulates the optimal dispatch schedule."""
+    p = Path(scenario_path)
+    if not p.exists():
+        console.print(f"[bold red]Error: Scenario file not found at {p}[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold green]Formulating mathematical model for: {p}...[/bold green]")
+    engine = SimulationEngine.from_scenario_file(p)
+
+    from vmc_twin.optimize import CPSATScheduler
+    from vmc_twin.sim.dispatcher import ScheduleDispatchPolicy
+
+    scheduler = CPSATScheduler(
+        machines=engine.machine_specs,
+        fixtures=engine.fixture_specs,
+        transition_matrix=engine.transition_matrix,
+    )
+
+    console.print(
+        f"[bold blue]Solving CP-SAT constraint programming model ({len(engine.jobs)} jobs, "
+        f"{len(engine.machine_specs)} machines, time limit={time_limit}s)...[/bold blue]"
+    )
+    opt_result = scheduler.solve(engine.jobs, time_limit_seconds=time_limit)
+
+    console.print(
+        Panel.fit(
+            f"[bold cyan]CP-SAT Solver Status: {opt_result.status}[/bold cyan]\n"
+            f"[green]Solve Time: {opt_result.solver_time_seconds:.2f}s[/green]\n"
+            f"[yellow]Theoretical Makespan: {opt_result.makespan_minutes:.1f}m[/yellow]\n"
+            f"[magenta]Total Weighted Tardiness: {opt_result.total_weighted_tardiness:.1f}[/magenta]",
+            title="CP-SAT Mathematical Optimization Summary",
+            border_style="cyan",
+        )
+    )
+
+    # Execute simulation using the CP-SAT schedule dispatch policy
+    custom_disp = ScheduleDispatchPolicy(opt_result.machine_job_sequences)
+    sim_result = engine.run(custom_dispatcher=custom_disp)
+
+    kpis = KPICalculator.calculate(
+        scenario_name=f"{sim_result.scenario_name}_CPSAT_Optimized",
+        horizon_minutes=sim_result.duration_minutes,
+        events=sim_result.events,
+        jobs=engine.jobs,
+    )
+
+    table = Table(
+        title="Simulated Optimal Schedule Performance",
+        show_header=True,
+        header_style="bold green",
+    )
+    table.add_column("Metric", style="dim")
+    table.add_column("Optimized Value", justify="right")
+
+    table.add_row("Makespan", f"{kpis.makespan_minutes:.1f} min")
+    table.add_row("Jobs Completed", f"{kpis.completed_jobs} / {kpis.total_jobs}")
+    table.add_row("On-Time Delivery (OTD)", f"{kpis.on_time_delivery_pct:.1f}%")
+    table.add_row("Mean Tardiness", f"{kpis.mean_tardiness_minutes:.1f} min")
+    table.add_row("Spindle Utilization %", f"{kpis.mean_spindle_utilization_pct:.1f}%")
+    table.add_row("Setup Time %", f"{kpis.mean_setup_pct:.1f}%")
+
+    console.print(table)
+
+    html_file = PlotlyVisualizer.export_dashboard_html(kpis, sim_result.events, output_path=html_out)
+    console.print(f"[bold green]Interactive Optimized Dashboard exported to {html_file.resolve()}[/bold green]")
+
+
+@app.command()
+def tournament(
+    scenario_path: str = typer.Argument(
+        "configs/scenarios/baseline.yaml", help="Path to scenario YAML"
+    ),
+    seeds: int = typer.Option(3, "--seeds", help="Number of random seeds"),
+    time_limit: float = typer.Option(10.0, "--time-limit", help="Solver time limit per run in seconds"),
+) -> None:
+    """Executes multi-scheduler bake-off tournament comparing FIFO, EDD, SPT, SLACK, ATC, and CP-SAT."""
+    p = Path(scenario_path)
+    if not p.exists():
+        console.print(f"[bold red]Error: Scenario file not found at {p}[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"[bold cyan]Running Scheduling Tournament on {p} across {seeds} random seeds...[/bold cyan]"
+    )
+
+    from vmc_twin.optimize.pareto import TournamentRunner
+
+    seed_list = [42 + i * 100 for i in range(seeds)]
+    benchmarks = TournamentRunner.run_bakeoff(
+        scenario_path=p,
+        policies=("FIFO", "EDD", "SPT", "SLACK", "ATC", "CP-SAT"),
+        seeds=seed_list,
+        optimizer_time_limit=time_limit,
+    )
+
+    # Aggregate by policy
+    policy_names = ["FIFO", "EDD", "SPT", "SLACK", "ATC", "CP-SAT"]
+    table = Table(
+        title="Optimizer & Dispatcher Tournament Leaderboard",
+        show_header=True,
+        header_style="bold magenta",
+    )
+    table.add_column("Policy / Model", style="bold")
+    table.add_column("Mean Makespan (m)", justify="right")
+    table.add_column("Mean Utilization %", justify="right")
+    table.add_column("Mean Setup %", justify="right")
+    table.add_column("Weighted Tardiness", justify="right")
+    table.add_column("OTD %", justify="right")
+    table.add_column("Avg Compute Time (s)", justify="right")
+
+    for pol in policy_names:
+        records = [r for r in benchmarks if r.policy_name == pol]
+        if not records:
+            continue
+        n_rec = len(records)
+        avg_makespan = sum(r.makespan_minutes for r in records) / n_rec
+        avg_util = sum(r.mean_spindle_utilization_pct for r in records) / n_rec
+        avg_setup = sum(r.mean_setup_pct for r in records) / n_rec
+        avg_wt = sum(r.total_weighted_tardiness for r in records) / n_rec
+        avg_otd = sum(r.on_time_delivery_pct for r in records) / n_rec
+        avg_cpu = sum(r.computation_time_seconds for r in records) / n_rec
+
+        table.add_row(
+            pol,
+            f"{avg_makespan:.1f}",
+            f"{avg_util:.1f}%",
+            f"{avg_setup:.1f}%",
+            f"{avg_wt:.1f}",
+            f"{avg_otd:.1f}%",
+            f"{avg_cpu:.2f}s",
+        )
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()
