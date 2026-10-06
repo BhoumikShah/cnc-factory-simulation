@@ -67,7 +67,7 @@ def test_energy_aware_ai_scheduler_and_dashboard(tmp_path: Path) -> None:
     assert result.makespan_minutes > 0.0
     assert result.total_energy_kwh > 0.0
     assert result.peak_power_kw > 0.0
-    assert len(result.scheduled_tasks) == 20
+    assert len(result.scheduled_tasks) == sum(len(j.operations) for j in jobs)
     assert len(result.power_profile) > 0
 
     # Test IE Dashboard generation

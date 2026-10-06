@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import plotly.graph_objects as go
 
 from vmc_twin.domain.events import Event
-from vmc_twin.optimize.pareto import PolicyBenchmarkResult
 from vmc_twin.predict.tool_wear import ToolPrognosticAssessment, WearRiskLevel
 from vmc_twin.report.kpis import FleetKPIs
 from vmc_twin.report.plots import PlotlyVisualizer
 from vmc_twin.rules.engine import ExplanationTrace, RuleSeverity
+
+if TYPE_CHECKING:
+    from vmc_twin.optimize.pareto import PolicyBenchmarkResult
 
 
 class UnifiedDashboardGenerator:
