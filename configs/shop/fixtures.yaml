@@ -1,0 +1,45 @@
+# Fixtures and Sequence-Dependent Setup Matrix
+fixtures:
+  - fixture_id: "VISE_6INCH_DUAL"
+    fixture_type: "VISE_STD"
+    description: "6-inch Precision Dual Station Milling Vise"
+    total_quantity: 8
+
+  - fixture_id: "CHUCK_4JAW_SCROLL"
+    fixture_type: "CHUCK_ROTARY"
+    description: "8-inch 4-Jaw Self-Centering Chuck on 4th Axis"
+    total_quantity: 4
+
+  - fixture_id: "TOMBSTONE_4SIDED"
+    fixture_type: "TOMBSTONE"
+    description: "4-Sided Modular Grid Tombstone for Pallet VMC"
+    total_quantity: 4
+
+  - fixture_id: "VACUUM_FIXTURE_PLATE"
+    fixture_type: "VACUUM_PLATE"
+    description: "Porous vacuum chuck plate for thin-wall plate milling"
+    total_quantity: 2
+
+setup_matrix:
+  default_setup_minutes: 20.0
+  transitions:
+    "VISE_6INCH_DUAL":
+      "VISE_6INCH_DUAL": 0.0
+      "CHUCK_4JAW_SCROLL": 25.0
+      "TOMBSTONE_4SIDED": 35.0
+      "VACUUM_FIXTURE_PLATE": 20.0
+    "CHUCK_4JAW_SCROLL":
+      "VISE_6INCH_DUAL": 25.0
+      "CHUCK_4JAW_SCROLL": 0.0
+      "TOMBSTONE_4SIDED": 40.0
+      "VACUUM_FIXTURE_PLATE": 30.0
+    "TOMBSTONE_4SIDED":
+      "VISE_6INCH_DUAL": 35.0
+      "CHUCK_4JAW_SCROLL": 40.0
+      "TOMBSTONE_4SIDED": 0.0
+      "VACUUM_FIXTURE_PLATE": 35.0
+    "VACUUM_FIXTURE_PLATE":
+      "VISE_6INCH_DUAL": 20.0
+      "CHUCK_4JAW_SCROLL": 30.0
+      "TOMBSTONE_4SIDED": 35.0
+      "VACUUM_FIXTURE_PLATE": 0.0

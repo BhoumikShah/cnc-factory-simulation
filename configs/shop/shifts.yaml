@@ -1,0 +1,73 @@
+# Shift Schedules, Breaks and Operator Roster
+shifts:
+  - shift_id: "DAY_SHIFT"
+    name: "Morning/Day Shift"
+    start_hour: 7.0
+    duration_hours: 8.5
+    days_of_week: [0, 1, 2, 3, 4]
+    breaks:
+      - name: "Morning Tea Break"
+        start_minute: 150.0  # 9:30 AM
+        duration_minutes: 15.0
+      - name: "Lunch Break"
+        start_minute: 300.0  # 12:00 PM
+        duration_minutes: 30.0
+      - name: "Afternoon Break"
+        start_minute: 420.0  # 2:00 PM
+        duration_minutes: 15.0
+
+  - shift_id: "SWING_SHIFT"
+    name: "Evening/Swing Shift"
+    start_hour: 15.5
+    duration_hours: 8.5
+    days_of_week: [0, 1, 2, 3, 4]
+    breaks:
+      - name: "Evening Tea Break"
+        start_minute: 150.0
+        duration_minutes: 15.0
+      - name: "Dinner Break"
+        start_minute: 300.0
+        duration_minutes: 30.0
+
+operators:
+  - operator_id: "OP-01"
+    name: "David Chen (Senior Tech)"
+    skill_level: 3
+    shift_ids: ["DAY_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL", "CHUCK_4JAW_SCROLL", "TOMBSTONE_4SIDED", "VACUUM_FIXTURE_PLATE"]
+
+  - operator_id: "OP-02"
+    name: "Sarah Miller (Machinist)"
+    skill_level: 2
+    shift_ids: ["DAY_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL", "CHUCK_4JAW_SCROLL", "TOMBSTONE_4SIDED"]
+
+  - operator_id: "OP-03"
+    name: "Alex Kowalski (Machinist)"
+    skill_level: 2
+    shift_ids: ["DAY_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL", "VACUUM_FIXTURE_PLATE"]
+
+  - operator_id: "OP-04"
+    name: "James Wilson (Apprentice)"
+    skill_level: 1
+    shift_ids: ["DAY_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL"]
+
+  - operator_id: "OP-05"
+    name: "Elena Rostova (Senior Tech)"
+    skill_level: 3
+    shift_ids: ["SWING_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL", "CHUCK_4JAW_SCROLL", "TOMBSTONE_4SIDED", "VACUUM_FIXTURE_PLATE"]
+
+  - operator_id: "OP-06"
+    name: "Carlos Sanchez (Machinist)"
+    skill_level: 2
+    shift_ids: ["SWING_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL", "CHUCK_4JAW_SCROLL"]
+
+  - operator_id: "OP-07"
+    name: "Priya Patel (Machinist)"
+    skill_level: 2
+    shift_ids: ["SWING_SHIFT"]
+    certified_fixtures: ["VISE_6INCH_DUAL", "TOMBSTONE_4SIDED"]

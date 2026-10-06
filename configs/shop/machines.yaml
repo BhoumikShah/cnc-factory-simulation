@@ -1,0 +1,111 @@
+# CNC Vertical Machining Center Fleet Specifications
+machines:
+  - machine_id: "VMC-01"
+    machine_type: "VMC_3AXIS_STD"
+    spindle_power_kw: 15.0
+    max_spindle_rpm: 12000.0
+    magazine_capacity: 30
+    has_pallet_changer: false
+    mtbf_hours: 120.0
+    mttr_minutes: 45.0
+    hourly_rate_usd: 75.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-02"
+    machine_type: "VMC_3AXIS_STD"
+    spindle_power_kw: 15.0
+    max_spindle_rpm: 12000.0
+    magazine_capacity: 30
+    has_pallet_changer: false
+    mtbf_hours: 120.0
+    mttr_minutes: 45.0
+    hourly_rate_usd: 75.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-03"
+    machine_type: "VMC_3AXIS_STD"
+    spindle_power_kw: 15.0
+    max_spindle_rpm: 12000.0
+    magazine_capacity: 30
+    has_pallet_changer: false
+    mtbf_hours: 120.0
+    mttr_minutes: 45.0
+    hourly_rate_usd: 75.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-04"
+    machine_type: "VMC_3AXIS_STD"
+    spindle_power_kw: 15.0
+    max_spindle_rpm: 12000.0
+    magazine_capacity: 30
+    has_pallet_changer: false
+    mtbf_hours: 120.0
+    mttr_minutes: 45.0
+    hourly_rate_usd: 75.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-05"
+    machine_type: "VMC_3AXIS_HEAVY"
+    spindle_power_kw: 22.0
+    max_spindle_rpm: 8000.0
+    magazine_capacity: 40
+    has_pallet_changer: true
+    mtbf_hours: 150.0
+    mttr_minutes: 60.0
+    hourly_rate_usd: 95.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-06"
+    machine_type: "VMC_3AXIS_HEAVY"
+    spindle_power_kw: 22.0
+    max_spindle_rpm: 8000.0
+    magazine_capacity: 40
+    has_pallet_changer: true
+    mtbf_hours: 150.0
+    mttr_minutes: 60.0
+    hourly_rate_usd: 95.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-07"
+    machine_type: "VMC_5AXIS_HIGH_SPEED"
+    spindle_power_kw: 18.5
+    max_spindle_rpm: 20000.0
+    magazine_capacity: 60
+    has_pallet_changer: true
+    mtbf_hours: 100.0
+    mttr_minutes: 50.0
+    hourly_rate_usd: 135.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-08"
+    machine_type: "VMC_5AXIS_HIGH_SPEED"
+    spindle_power_kw: 18.5
+    max_spindle_rpm: 20000.0
+    magazine_capacity: 60
+    has_pallet_changer: true
+    mtbf_hours: 100.0
+    mttr_minutes: 50.0
+    hourly_rate_usd: 135.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-09"
+    machine_type: "VMC_5AXIS_HIGH_SPEED"
+    spindle_power_kw: 18.5
+    max_spindle_rpm: 20000.0
+    magazine_capacity: 60
+    has_pallet_changer: false
+    mtbf_hours: 100.0
+    mttr_minutes: 50.0
+    hourly_rate_usd: 125.0
+    pallet_setup_factor: 0.3
+
+  - machine_id: "VMC-10"
+    machine_type: "VMC_5AXIS_HIGH_SPEED"
+    spindle_power_kw: 18.5
+    max_spindle_rpm: 20000.0
+    magazine_capacity: 60
+    has_pallet_changer: false
+    mtbf_hours: 100.0
+    mttr_minutes: 50.0
+    hourly_rate_usd: 125.0
+    pallet_setup_factor: 0.3

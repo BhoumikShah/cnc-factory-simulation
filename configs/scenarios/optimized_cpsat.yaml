@@ -1,0 +1,15 @@
+scenario_name: "optimized_cpsat"
+description: "Optimization scenario using OR-Tools CP-SAT finite capacity scheduler"
+random_seed: 42
+warmup_minutes: 0.0
+duration_minutes: 43200.0
+num_replications: 1
+dispatch_policy: "CP_SAT"
+shop_config_dir: "configs/shop"
+synthetic_job_count: 500
+workpiece_mix:
+  Aluminum_6061: 0.50
+  Steel_4140: 0.30
+  Titanium_Gr5: 0.20
+injected_faults: {}
+optimizer_time_limit_seconds: 45.0

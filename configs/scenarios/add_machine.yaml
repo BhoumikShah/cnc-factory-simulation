@@ -1,0 +1,15 @@
+scenario_name: "add_machine"
+description: "What-if scenario: Fleet expanded with additional high-speed 5-axis machine to relieve bottleneck"
+random_seed: 42
+warmup_minutes: 0.0
+duration_minutes: 43200.0
+num_replications: 1
+dispatch_policy: "FIFO"
+shop_config_dir: "configs/shop"
+synthetic_job_count: 650
+workpiece_mix:
+  Aluminum_6061: 0.40
+  Steel_4140: 0.30
+  Titanium_Gr5: 0.30
+injected_faults: {}
+optimizer_time_limit_seconds: 30.0

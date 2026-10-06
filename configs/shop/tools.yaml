@@ -1,0 +1,61 @@
+# Cutting Tool Specifications and Crib Stock
+tools:
+  - tool_type: "FACEMILL_50MM"
+    description: "50mm Indexable Face Mill for roughing"
+    nominal_life_minutes: 180.0
+    weibull_shape: 3.0
+    weibull_scale: 195.0
+    base_change_time_minutes: 3.0
+    auto_change_time_minutes: 0.1
+    initial_crib_stock: 12
+    replenishment_lead_time_minutes: 60.0
+
+  - tool_type: "ENDMILL_12MM_CARBIDE"
+    description: "12mm 4-Flute Solid Carbide End Mill"
+    nominal_life_minutes: 120.0
+    weibull_shape: 2.8
+    weibull_scale: 130.0
+    base_change_time_minutes: 2.5
+    auto_change_time_minutes: 0.1
+    initial_crib_stock: 20
+    replenishment_lead_time_minutes: 45.0
+
+  - tool_type: "BALLNOSE_6MM"
+    description: "6mm 2-Flute Ball Nose End Mill for 3D surfacing"
+    nominal_life_minutes: 90.0
+    weibull_shape: 2.5
+    weibull_scale: 98.0
+    base_change_time_minutes: 2.5
+    auto_change_time_minutes: 0.1
+    initial_crib_stock: 15
+    replenishment_lead_time_minutes: 45.0
+
+  - tool_type: "DRILL_8_5MM"
+    description: "8.5mm Carbide Twist Drill (M10 tap drill)"
+    nominal_life_minutes: 150.0
+    weibull_shape: 3.2
+    weibull_scale: 160.0
+    base_change_time_minutes: 2.0
+    auto_change_time_minutes: 0.1
+    initial_crib_stock: 25
+    replenishment_lead_time_minutes: 30.0
+
+  - tool_type: "TAP_M10"
+    description: "M10x1.5 Spiral Flute Threading Tap"
+    nominal_life_minutes: 80.0
+    weibull_shape: 2.6
+    weibull_scale: 85.0
+    base_change_time_minutes: 2.0
+    auto_change_time_minutes: 0.1
+    initial_crib_stock: 15
+    replenishment_lead_time_minutes: 30.0
+
+  - tool_type: "CHAMFER_MILL_45DEG"
+    description: "45-Degree Chamfer & Deburring Tool"
+    nominal_life_minutes: 240.0
+    weibull_shape: 3.5
+    weibull_scale: 255.0
+    base_change_time_minutes: 2.0
+    auto_change_time_minutes: 0.1
+    initial_crib_stock: 10
+    replenishment_lead_time_minutes: 60.0
