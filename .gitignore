@@ -46,6 +46,7 @@ htmlcov/
 outputs/
 reports/
 logs/
+scratch/
 
 # IDE
 .idea/

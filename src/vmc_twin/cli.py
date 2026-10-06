@@ -567,5 +567,90 @@ def report(
     )
 
 
+@app.command()
+def schedule_ai(
+    scenario_path: str = typer.Argument(
+        "configs/scenarios/baseline.yaml", help="Path to scenario YAML"
+    ),
+    peak_limit: float = typer.Option(
+        35.0, "--peak-limit", help="Factory simultaneous active power cap (kW)"
+    ),
+    output: str = typer.Option(
+        "outputs/ie_dashboard.html", "--output", "-o", help="Output path for interactive IE dashboard HTML"
+    ),
+) -> None:
+    """Runs Energy-Aware Multi-Objective AI Scheduler with Peak Power Shaving and Deadline Enforcement."""
+    p = Path(scenario_path)
+    if not p.exists():
+        console.print(f"[bold red]Error: Scenario file not found at {p}[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold cyan]Running Energy-Aware AI Scheduling Engine on {p}...[/bold cyan]")
+    scenario = ConfigLoader.load_scenario(p)
+    shop_dir = Path(scenario.shop_config_dir)
+
+    machines = ConfigLoader.load_machines(shop_dir / "machines.yaml")
+    fixtures, matrix = ConfigLoader.load_fixtures(shop_dir / "fixtures.yaml")
+
+    from vmc_twin.data.generator import SyntheticDataGenerator
+    from vmc_twin.optimize.ai_scheduler import EnergyAwareAIScheduler
+    from vmc_twin.report.ie_dashboard import IEDashboardGenerator
+
+    gen = SyntheticDataGenerator(random_seed=scenario.random_seed)
+    jobs = gen.generate_jobs(
+        count=scenario.synthetic_job_count,
+        horizon_minutes=scenario.duration_minutes,
+        workpiece_mix=scenario.workpiece_mix,
+    )
+
+    console.print(
+        f"[bold blue]Solving multi-objective schedule for {len(jobs)} jobs across "
+        f"{len(machines)} VMCs with {peak_limit:.1f} kW peak demand cap...[/bold blue]"
+    )
+
+    ai_scheduler = EnergyAwareAIScheduler(
+        machines=machines,
+        fixtures=fixtures,
+        transition_matrix=matrix,
+        peak_power_limit_kw=peak_limit,
+    )
+    result = ai_scheduler.solve(jobs=jobs, scenario_name=scenario.scenario_name)
+
+    # Print Summary Table
+    table = Table(
+        title="Industrial Engineering AI Scheduling & Energy Results",
+        show_header=True,
+        header_style="bold green",
+    )
+    table.add_column("Production & Energy Metric", style="bold")
+    table.add_column("AI Scheduled Value", justify="right")
+
+    cost_usd = result.total_energy_kwh * 0.16
+    co2_kg = result.total_energy_kwh * 0.42
+
+    table.add_row("Makespan", f"{result.makespan_minutes:.1f} min ({result.makespan_minutes/60.0:.1f} hrs)")
+    table.add_row("Jobs Completed", f"{result.completed_jobs} / {result.total_jobs}")
+    table.add_row("On-Time Delivery (OTD)", f"{result.on_time_delivery_pct:.1f}%")
+    table.add_row("Mean Tardiness", f"{result.mean_tardiness_minutes:.1f} min")
+    table.add_row("Total Energy Consumed", f"{result.total_energy_kwh:.1f} kWh")
+    table.add_row("Observed Peak Power", f"{result.peak_power_kw:.1f} kW")
+    table.add_row("Peak Power Limit Cap", f"{result.peak_power_limit_kw:.1f} kW")
+    table.add_row("Total Electricity Cost ($0.16/kWh)", f"${cost_usd:.2f}")
+    table.add_row("Carbon Emissions (kg CO2)", f"{co2_kg:.1f} kg")
+
+    console.print(table)
+
+    dash_path = IEDashboardGenerator.generate_dashboard(result=result, output_path=output)
+    console.print(
+        Panel.fit(
+            f"[bold green]Industrial Engineering Dashboard exported successfully![/bold green]\n"
+            f"[cyan]Output File:[/cyan] {dash_path.resolve()}\n"
+            f"Open this file in any browser to inspect interactive Gantt, electrical load curves, and deadline compliance.",
+            title="AI Production & Energy Twin",
+            border_style="cyan",
+        )
+    )
+
+
 if __name__ == "__main__":
     app()
