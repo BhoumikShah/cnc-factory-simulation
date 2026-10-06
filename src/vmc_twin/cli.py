@@ -652,5 +652,127 @@ def schedule_ai(
     )
 
 
+@app.command(name="schedule-interactive")
+def schedule_interactive(
+    job_count: int = typer.Option(200, "--jobs", "-n", prompt="Enter number of production jobs (work orders)", help="Number of work orders"),
+    horizon_days: int = typer.Option(30, "--horizon-days", "-d", prompt="Enter target production horizon in days", help="Horizon in days"),
+    peak_limit: float = typer.Option(25.0, "--peak-limit", "-p", prompt="Enter maximum fleet electrical peak power limit (kW)", help="Peak electrical limit in kW"),
+    pct_al: float = typer.Option(50.0, "--pct-al", prompt="Enter percentage of Aluminum 6061 workpieces (%)", help="% Aluminum"),
+    pct_steel: float = typer.Option(30.0, "--pct-steel", prompt="Enter percentage of Steel 4140 workpieces (%)", help="% Steel"),
+    pct_ti: float = typer.Option(20.0, "--pct-ti", prompt="Enter percentage of Titanium Gr5 workpieces (%)", help="% Titanium"),
+    output: str = typer.Option("outputs/ie_dashboard.html", "--output", "-o", help="Path to export interactive IE HTML dashboard"),
+    auto_open: bool = typer.Option(True, "--open/--no-open", help="Automatically open generated dashboard in browser"),
+) -> None:
+    """
+    Run the AI Scheduler interactively with custom user-specified parameters.
+    """
+    import subprocess
+    import sys
+
+    from vmc_twin.data.generator import SyntheticDataGenerator
+    from vmc_twin.optimize.ai_scheduler import EnergyAwareAIScheduler
+    from vmc_twin.report.ie_dashboard import IEDashboardGenerator
+
+    scenario = ConfigLoader.load_scenario("configs/scenarios/baseline.yaml")
+    shop_dir = Path(scenario.shop_config_dir)
+    machines = ConfigLoader.load_machines(shop_dir / "machines.yaml")
+    fixtures, matrix = ConfigLoader.load_fixtures(shop_dir / "fixtures.yaml")
+
+    tot_pct = pct_al + pct_steel + pct_ti
+    if tot_pct <= 0:
+        tot_pct = 100.0
+    material_mix = {
+        "Aluminum_6061": pct_al / tot_pct,
+        "Steel_4140": pct_steel / tot_pct,
+        "Titanium_Gr5": pct_ti / tot_pct,
+    }
+
+    horizon_minutes = float(horizon_days * 24 * 60)
+    console.print(
+        f"\n[bold cyan]🔧 Initializing AI Engine with Custom User Parameters:[/bold cyan]\n"
+        f"  • Work Orders: [bold]{job_count}[/bold] jobs\n"
+        f"  • Horizon: [bold]{horizon_days}[/bold] days ({horizon_minutes:,.0f} min)\n"
+        f"  • Peak Power Cap: [bold]{peak_limit:.1f}[/bold] kW\n"
+        f"  • Material Distribution: [bold]{material_mix['Aluminum_6061']*100:.0f}% Al[/bold], [bold]{material_mix['Steel_4140']*100:.0f}% Steel[/bold], [bold]{material_mix['Titanium_Gr5']*100:.0f}% Ti[/bold]\n"
+        f"  • Machines: [bold]{len(machines)}[/bold] VMC Workcenters\n"
+    )
+
+    gen = SyntheticDataGenerator(random_seed=42)
+    jobs = gen.generate_jobs(
+        count=job_count,
+        horizon_minutes=horizon_minutes,
+        workpiece_mix=material_mix,
+    )
+
+    with console.status("[bold green]Solving multi-objective energy & deadline schedule...[/bold green]"):
+        scheduler = EnergyAwareAIScheduler(
+            machines=machines,
+            fixtures=fixtures,
+            transition_matrix=matrix,
+            peak_power_limit_kw=peak_limit,
+        )
+        result = scheduler.solve(jobs=jobs, scenario_name="Interactive_User_Run")
+
+    table = Table(
+        title="Custom Parameterized AI Scheduling & Energy Results",
+        show_header=True,
+        header_style="bold green",
+    )
+    table.add_column("Production & Energy Metric", style="bold")
+    table.add_column("AI Scheduled Value", justify="right")
+
+    cost_usd = result.total_energy_kwh * 0.16
+    co2_kg = result.total_energy_kwh * 0.42
+
+    table.add_row("Makespan", f"{result.makespan_minutes:.1f} min ({result.makespan_minutes/60.0:.1f} hrs)")
+    table.add_row("Jobs Completed", f"{result.completed_jobs} / {result.total_jobs}")
+    table.add_row("On-Time Delivery (OTD)", f"{result.on_time_delivery_pct:.1f}%")
+    table.add_row("Mean Tardiness", f"{result.mean_tardiness_minutes:.1f} min")
+    table.add_row("Total Energy Consumed", f"{result.total_energy_kwh:.1f} kWh")
+    table.add_row("Observed Peak Power", f"{result.peak_power_kw:.1f} kW")
+    table.add_row("Peak Power Limit Cap", f"{result.peak_power_limit_kw:.1f} kW")
+    table.add_row("Total Electricity Cost ($0.16/kWh)", f"${cost_usd:.2f}")
+    table.add_row("Carbon Emissions (kg CO2)", f"{co2_kg:.1f} kg")
+
+    console.print(table)
+
+    dash_path = IEDashboardGenerator.generate_dashboard(result=result, output_path=output)
+    console.print(
+        Panel.fit(
+            f"[bold green]Interactive IE Dashboard exported successfully![/bold green]\n"
+            f"[cyan]Output File:[/cyan] {dash_path.resolve()}",
+            title="Custom AI Run Complete",
+            border_style="green",
+        )
+    )
+
+    if auto_open:
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen(["cmd", "/c", "start", "", str(dash_path.resolve())], shell=True)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(dash_path.resolve())])
+            else:
+                subprocess.Popen(["xdg-open", str(dash_path.resolve())])
+        except OSError as e:
+            console.print(f"[dim]Could not open browser automatically: {e}[/dim]")
+
+
+@app.command(name="ui")
+def launch_ui(
+    port: int = typer.Option(8501, "--port", "-p", help="Port to bind Streamlit app"),
+) -> None:
+    """
+    Launch the interactive Web Control Center (Streamlit) for real-time parameter tuning and visual analytics.
+    """
+    import subprocess
+    import sys
+
+    app_path = Path(__file__).parent / "ui" / "app.py"
+    console.print(f"[bold cyan]🚀 Launching AI Control Center on http://localhost:{port}...[/bold cyan]")
+    cmd = [sys.executable, "-m", "streamlit", "run", str(app_path), "--server.port", str(port)]
+    subprocess.run(cmd, check=False)
+
+
 if __name__ == "__main__":
     app()
