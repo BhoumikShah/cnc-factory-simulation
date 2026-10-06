@@ -14,6 +14,7 @@ class ToolSpec:
     weibull_scale: float  # eta parameter (characteristic life in minutes)
     base_change_time_minutes: float = 3.0
     auto_change_time_minutes: float = 0.1  # ATC magazine change
+    replenishment_lead_time_minutes: float = 120.0
 
 
 @dataclass(slots=True)

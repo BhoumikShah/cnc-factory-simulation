@@ -66,6 +66,7 @@ class ConfigLoader:
                 weibull_scale=t.weibull_scale,
                 base_change_time_minutes=t.base_change_time_minutes,
                 auto_change_time_minutes=t.auto_change_time_minutes,
+                replenishment_lead_time_minutes=t.replenishment_lead_time_minutes,
             )
             for t in parsed.tools
         ]

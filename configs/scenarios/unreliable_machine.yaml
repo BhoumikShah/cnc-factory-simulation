@@ -1,0 +1,16 @@
+scenario_name: "unreliable_machine"
+description: "Injected fault scenario: Frequent machine breakdowns to trigger BREAKDOWN_DOMINATED diagnosis"
+random_seed: 42
+warmup_minutes: 0.0
+duration_minutes: 10080.0  # 7 days
+num_replications: 1
+dispatch_policy: "FIFO"
+shop_config_dir: "configs/shop"
+synthetic_job_count: 200
+workpiece_mix:
+  Aluminum_6061: 0.50
+  Steel_4140: 0.50
+enable_breakdowns: true
+injected_faults:
+  high_failure_rate: true
+optimizer_time_limit_seconds: 30.0

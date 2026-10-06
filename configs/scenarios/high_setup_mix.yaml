@@ -2,11 +2,11 @@ scenario_name: "high_setup_mix"
 description: "High-mix low-volume production with frequent fixture changes to trigger SETUP_WASTE diagnosis"
 random_seed: 42
 warmup_minutes: 0.0
-duration_minutes: 20160.0  # 14 days
+duration_minutes: 2880.0  # 2 days dense high-mix
 num_replications: 1
 dispatch_policy: "FIFO"
 shop_config_dir: "configs/shop"
-synthetic_job_count: 350
+synthetic_job_count: 500
 workpiece_mix:
   Aluminum_6061: 0.33
   Steel_4140: 0.33

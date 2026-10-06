@@ -75,7 +75,11 @@ class PlotlyVisualizer:
         fig.update_layout(
             title="CNC VMC Fleet Spindle Activity Timeline (Gantt Chart)",
             barmode="stack",
-            xaxis={"title": "Time (minutes)", "showgrid": True, "gridcolor": "rgba(255,255,255,0.1)"},
+            xaxis={
+                "title": "Time (minutes)",
+                "showgrid": True,
+                "gridcolor": "rgba(255,255,255,0.1)",
+            },
             yaxis={"title": "Machine", "autorange": "reversed"},
             template="plotly_dark",
             legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},

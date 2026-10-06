@@ -88,6 +88,24 @@ class SimulationEngine:
         shop_dir = Path(scenario_cfg.shop_config_dir)
 
         machines = ConfigLoader.load_machines(shop_dir / "machines.yaml")
+        if scenario_cfg.injected_faults.get("high_failure_rate", False):
+            # Reduced MTBF to 4 hours to simulate severe unreliability
+            machines = [
+                MachineSpec(
+                    machine_id=m.machine_id,
+                    machine_type=m.machine_type,
+                    spindle_power_kw=m.spindle_power_kw,
+                    max_spindle_rpm=m.max_spindle_rpm,
+                    magazine_capacity=m.magazine_capacity,
+                    has_pallet_changer=m.has_pallet_changer,
+                    mtbf_hours=4.0,
+                    mttr_minutes=90.0,
+                    hourly_rate_usd=m.hourly_rate_usd,
+                    pallet_setup_factor=m.pallet_setup_factor,
+                )
+                for m in machines
+            ]
+
         tools = ConfigLoader.load_tools(shop_dir / "tools.yaml")
         fixtures, matrix = ConfigLoader.load_fixtures(shop_dir / "fixtures.yaml")
         operators = ConfigLoader.load_operators(shop_dir / "shifts.yaml")
@@ -136,13 +154,18 @@ class SimulationEngine:
         # Handle Fault Injections
         crib_stocks: dict[str, int] = {}
         if self.scenario.injected_faults.get("starve_tool_crib", False):
-            # Injected fault: only 1 tool of each type
-            crib_stocks = {ts.tool_type: 1 for ts in self.tool_specs}
+            # Injected fault: completely empty tool crib
+            crib_stocks = {ts.tool_type: 0 for ts in self.tool_specs}
+
+        operators_to_use = list(self.operators)
+        if self.scenario.injected_faults.get("operator_bottleneck", False):
+            # Injected fault: restrict pool to single operator
+            operators_to_use = [self.operators[0]] if self.operators else []
 
         # Initialize shared resources
         resources = ShopFloorResources(
             env=env,
-            operators=self.operators,
+            operators=operators_to_use,
             fixture_specs=self.fixture_specs,
             transition_matrix=self.transition_matrix,
             tool_specs=self.tool_specs,

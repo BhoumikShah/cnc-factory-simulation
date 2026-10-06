@@ -105,6 +105,23 @@ class ShiftsShopConfig(BaseModel):
     operators: Sequence[OperatorConfig]
 
 
+class DiagnosisThresholdsConfig(BaseModel):
+    """Configurable thresholds for explainable expert system diagnostics."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    starvation_idle_pct: float = Field(default=20.0, ge=0.0, le=100.0)
+    setup_wait_idle_pct: float = Field(default=15.0, ge=0.0, le=100.0)
+    tool_wait_idle_pct: float = Field(default=10.0, ge=0.0, le=100.0)
+    operator_wait_idle_pct: float = Field(default=15.0, ge=0.0, le=100.0)
+    fixture_wait_idle_pct: float = Field(default=10.0, ge=0.0, le=100.0)
+    breakdown_pct: float = Field(default=20.0, ge=0.0, le=100.0)
+    mtbf_critical_hours: float = Field(default=20.0, gt=0)
+    setup_waste_pct: float = Field(default=25.0, ge=0.0, le=100.0)
+    bottleneck_utilization_pct: float = Field(default=75.0, ge=0.0, le=100.0)
+    window_duration_minutes: float = Field(default=240.0, gt=0)
+
+
 class ScenarioConfig(BaseModel):
     """Configuration for an end-to-end simulation or optimization run."""
 
@@ -125,3 +142,4 @@ class ScenarioConfig(BaseModel):
     enable_breakdowns: bool = False
     injected_faults: Mapping[str, bool] = Field(default_factory=dict)
     optimizer_time_limit_seconds: float = Field(default=30.0, gt=0)
+    diagnosis: DiagnosisThresholdsConfig = Field(default_factory=DiagnosisThresholdsConfig)

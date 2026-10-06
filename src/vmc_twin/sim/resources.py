@@ -77,3 +77,18 @@ class ShopFloorResources:
         """Returns a tool instance back to the crib or triggers refurbishment."""
         if tool.tool_type in self.tool_crib:
             self.tool_crib[tool.tool_type].append(tool)
+
+    def replenish_tool(self, tool_type: str, count: int = 1) -> None:
+        """Adds newly procured or reconditioned tools to crib inventory."""
+        spec = self.tool_specs.get(tool_type)
+        life = spec.nominal_life_minutes if spec else 120.0
+        current_len = len(self.tool_crib.get(tool_type, []))
+        new_tools = [
+            ToolInstance(
+                tool_id=f"{tool_type}_{current_len + i + 1:03d}",
+                tool_type=tool_type,
+                life_limit_minutes=life,
+            )
+            for i in range(count)
+        ]
+        self.tool_crib.setdefault(tool_type, []).extend(new_tools)

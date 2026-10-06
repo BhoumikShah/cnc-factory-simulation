@@ -187,10 +187,13 @@ class MachineProcess:
                     t_type = req_tool.tool_type
                     if t_type not in self.mounted_tools or self.mounted_tools[t_type].is_worn_out:
                         t_tool_req = self.env.now
+                        spec = self.resources.tool_specs.get(t_type)
+                        lead_time = spec.replenishment_lead_time_minutes if spec else 60.0
+
                         if not self.resources.has_tool_in_crib(t_type):
                             self.machine.current_state = SpindleState.IDLE_WAIT_TOOL
-                            # Wait for crib replenishment
-                            yield self.env.timeout(10.0)
+                            # Wait for crib replenishment lead time
+                            yield self.env.timeout(lead_time)
                             t_tool_ready = self.env.now
                             self.machine.accumulated_idle_minutes += t_tool_ready - t_tool_req
                             self.event_sink.on_event(
@@ -202,13 +205,14 @@ class MachineProcess:
                                     op_id=operation.op_id,
                                     state=SpindleState.IDLE_WAIT_TOOL,
                                     cause_code=CauseCode.TOOL_CRIB_EMPTY,
-                                    metadata={"missing_tool_type": t_type},
+                                    metadata={"tool_type": t_type, "missing_tool_type": t_type},
                                 )
                             )
+                            # Replenish crib with 2 units after lead time delivery
+                            self.resources.replenish_tool(t_type, count=2)
 
                         tool_inst = self.resources.checkout_tool(t_type)
                         if tool_inst is None:
-                            spec = self.resources.tool_specs.get(t_type)
                             life = spec.nominal_life_minutes if spec else 120.0
                             tool_inst = ToolInstance(
                                 tool_id=f"{t_type}_AUTO",

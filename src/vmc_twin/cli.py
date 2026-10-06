@@ -155,5 +155,112 @@ def run_single(
     )
 
 
+@app.command()
+def diagnose(
+    scenario_path: str = typer.Argument(
+        "configs/scenarios/baseline.yaml", help="Path to scenario YAML"
+    ),
+    md_out: str | None = typer.Option(
+        None, "--md", help="Path to export Markdown diagnostic report"
+    ),
+    json_out: str | None = typer.Option(
+        None, "--json", help="Path to export JSON diagnostic findings"
+    ),
+) -> None:
+    """Runs simulation and executes explainable expert diagnostic rules."""
+    import json
+
+    p = Path(scenario_path)
+    if not p.exists():
+        console.print(f"[bold red]Error: Scenario file not found at {p}[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold green]Running simulation for diagnosis: {p}...[/bold green]")
+    engine = SimulationEngine.from_scenario_file(p)
+    result = engine.run()
+
+    kpis = KPICalculator.calculate(
+        scenario_name=result.scenario_name,
+        horizon_minutes=result.duration_minutes,
+        events=result.events,
+        jobs=engine.jobs,
+    )
+
+    from vmc_twin.rules import FactExtractor, RuleSeverity, create_default_rule_engine
+
+    facts = FactExtractor.extract(
+        kpis=kpis,
+        events=result.events,
+        window_minutes=engine.scenario.diagnosis.window_duration_minutes,
+    )
+
+    rule_engine = create_default_rule_engine()
+    trace = rule_engine.diagnose(facts, thresholds=engine.scenario.diagnosis)
+
+    # Display Rich Diagnostic Report
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Scenario: {trace.scenario_name}[/bold cyan]\n"
+            f"[red]Critical Issues: {trace.critical_count}[/red] | "
+            f"[yellow]Warnings: {trace.warning_count}[/yellow] | "
+            f"[blue]Informational: {trace.info_count}[/blue]",
+            title="Expert System Diagnostic Summary",
+            border_style="magenta",
+        )
+    )
+
+    if not trace.findings:
+        console.print(
+            "[bold green]✓ No operational anomalies detected. Shop floor operating efficiently.[/bold green]"
+        )
+    else:
+        for idx, finding in enumerate(trace.findings, start=1):
+            color = (
+                "red"
+                if finding.severity == RuleSeverity.CRITICAL
+                else ("yellow" if finding.severity == RuleSeverity.WARNING else "blue")
+            )
+            table = Table(show_header=False, border_style=color)
+            table.add_column("Field", style="bold")
+            table.add_column("Detail")
+
+            table.add_row("Severity", f"[{color}]{finding.severity.value}[/{color}]")
+            table.add_row("Target", finding.target_entity)
+            table.add_row("Confidence", f"{finding.confidence * 100:.1f}%")
+            table.add_row("Root Cause", finding.root_cause_narrative)
+            table.add_row(
+                "Actionable Remediation",
+                f"[bold green]{finding.actionable_remediation}[/bold green]",
+            )
+
+            console.print(
+                Panel(
+                    table,
+                    title=f"[{color}]Finding #{idx}: {finding.rule_name} ({finding.rule_id})[/{color}]",
+                    border_style=color,
+                )
+            )
+
+    if md_out:
+        md_path = Path(md_out)
+        md_path.parent.mkdir(parents=True, exist_ok=True)
+        md_path.write_text(trace.to_markdown(), encoding="utf-8")
+        console.print(f"[bold green]Markdown report saved to {md_path.resolve()}[/bold green]")
+
+    if json_out:
+        json_path = Path(json_out)
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "scenario": trace.scenario_name,
+            "critical_count": trace.critical_count,
+            "warning_count": trace.warning_count,
+            "info_count": trace.info_count,
+            "findings": [f.to_dict() for f in trace.findings],
+            "suppressed": [f.to_dict() for f in trace.suppressed_findings],
+        }
+        json_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        console.print(f"[bold green]JSON findings saved to {json_path.resolve()}[/bold green]")
+
+
 if __name__ == "__main__":
     app()
