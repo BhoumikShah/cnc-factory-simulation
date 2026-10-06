@@ -689,12 +689,12 @@ def schedule_interactive(
 
     horizon_minutes = float(horizon_days * 24 * 60)
     console.print(
-        f"\n[bold cyan]🔧 Initializing AI Engine with Custom User Parameters:[/bold cyan]\n"
-        f"  • Work Orders: [bold]{job_count}[/bold] jobs\n"
-        f"  • Horizon: [bold]{horizon_days}[/bold] days ({horizon_minutes:,.0f} min)\n"
-        f"  • Peak Power Cap: [bold]{peak_limit:.1f}[/bold] kW\n"
-        f"  • Material Distribution: [bold]{material_mix['Aluminum_6061']*100:.0f}% Al[/bold], [bold]{material_mix['Steel_4140']*100:.0f}% Steel[/bold], [bold]{material_mix['Titanium_Gr5']*100:.0f}% Ti[/bold]\n"
-        f"  • Machines: [bold]{len(machines)}[/bold] VMC Workcenters\n"
+        f"\n[bold cyan][*] Initializing AI Engine with Custom User Parameters:[/bold cyan]\n"
+        f"  - Work Orders: [bold]{job_count}[/bold] jobs\n"
+        f"  - Horizon: [bold]{horizon_days}[/bold] days ({horizon_minutes:,.0f} min)\n"
+        f"  - Peak Power Cap: [bold]{peak_limit:.1f}[/bold] kW\n"
+        f"  - Material Distribution: [bold]{material_mix['Aluminum_6061']*100:.0f}% Al[/bold], [bold]{material_mix['Steel_4140']*100:.0f}% Steel[/bold], [bold]{material_mix['Titanium_Gr5']*100:.0f}% Ti[/bold]\n"
+        f"  - Machines: [bold]{len(machines)}[/bold] VMC Workcenters\n"
     )
 
     gen = SyntheticDataGenerator(random_seed=42)
@@ -769,7 +769,7 @@ def launch_ui(
     import sys
 
     app_path = Path(__file__).parent / "ui" / "app.py"
-    console.print(f"[bold cyan]🚀 Launching AI Control Center on http://localhost:{port}...[/bold cyan]")
+    console.print(f"[bold cyan]>>> Launching AI Control Center on http://localhost:{port}...[/bold cyan]")
     cmd = [sys.executable, "-m", "streamlit", "run", str(app_path), "--server.port", str(port)]
     subprocess.run(cmd, check=False)
 
