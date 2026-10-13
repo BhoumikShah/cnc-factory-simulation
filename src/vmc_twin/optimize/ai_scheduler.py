@@ -4,6 +4,8 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import numpy as np
+
 from vmc_twin.domain.fixture import FixtureSpec, FixtureTransitionMatrix
 from vmc_twin.domain.job import Job
 from vmc_twin.domain.machine import MachineSpec
@@ -109,11 +111,60 @@ class EnergyAwareAIScheduler:
         job_completion_time: dict[str, float] = {}
 
         scheduled_tasks: list[AIScheduledTask] = []
+        last_machine_task: dict[str, AIScheduledTask] = {}
         peak_shaved_count = 0
+
+        # === PERFORMANCE: Pre-build machine compatibility index ===
+        # Maps machine_id -> set of job_ids whose current op is compatible
+        # This avoids scanning ALL jobs on every dispatch step.
+        machine_type_to_id: dict[str, list[str]] = {}
+        for m in self.machines:
+            machine_type_to_id.setdefault(m.machine_type, []).append(m.machine_id)
+
+        pending_job_ids: set[str] = {j.job_id for j in all_jobs}
+        job_lookup: dict[str, Job] = {j.job_id: j for j in all_jobs}
+
+        # === PERFORMANCE: Cache predict_power results ===
+        # Key: (required_rpm, material) -> PowerPrediction
+        _power_cache: dict[tuple[float, str], float] = {}
+
+        def _cached_power_kw(rpm: float, material: str) -> float:
+            key = (rpm, material)
+            cached = _power_cache.get(key)
+            if cached is not None:
+                return cached
+            pred = EmpiricalPowerModel.predict_power(
+                spindle_speed_rpm=rpm,
+                feed_rate_mm_min=380.0,
+                depth_of_cut_mm=3.0,
+                material=material,
+            )
+            _power_cache[key] = pred.total_power_kw
+            return pred.total_power_kw
+
+        # === PERFORMANCE: Pre-compute downstream work per job ===
+        # downstream_work[job_id][op_idx] = remaining processing + est. setups after op_idx
+        downstream_work: dict[str, list[float]] = {}
+        for j in all_jobs:
+            n_ops = len(j.operations)
+            dw = [0.0] * (n_ops + 1)  # dw[n_ops] = 0.0 (nothing after last)
+            for k in range(n_ops - 1, -1, -1):
+                dw[k] = j.operations[k].nominal_cycle_minutes + 8.0 + dw[k + 1]
+            downstream_work[j.job_id] = dw
 
         # Calculate average cycle time for normalization
         all_op_durations = [op.nominal_cycle_minutes for j in all_jobs for op in j.operations]
         avg_cycle_time = sum(all_op_durations) / max(1, len(all_op_durations))
+
+        # Pre-compute allowed machine set for each operation
+        # allowed_set[job_id] = list of sets, one per operation
+        allowed_sets: dict[str, list[frozenset[str]]] = {}
+        for j in all_jobs:
+            sets = []
+            for op in j.operations:
+                s = frozenset(op.allowed_machine_types)
+                sets.append(s)
+            allowed_sets[j.job_id] = sets
 
         # Loop until all operations of all jobs are completed
         total_operations = sum(len(j.operations) for j in all_jobs)
@@ -124,30 +175,75 @@ class EnergyAwareAIScheduler:
                 machine_available_time, key=lambda mid: machine_available_time[mid]
             )
             m_time = machine_available_time[ready_machine_id]
+            if m_time == float("inf"):
+                break
+
             machine = machine_lookup[ready_machine_id]
             curr_fixture = machine_active_fixture[ready_machine_id]
 
-            # 2. Identify all candidate operations ready or arriving soon
+            # 2. Identify candidates — only scan pending jobs
             eligible_candidates: list[tuple[Job, Operation, int]] = []
-            for j in all_jobs:
-                op_idx = job_next_op_idx[j.job_id]
+            for jid in pending_job_ids:
+                j = job_lookup[jid]
+                op_idx = job_next_op_idx[jid]
                 if op_idx < len(j.operations):
-                    op = j.operations[op_idx]
-                    if machine.machine_type in op.allowed_machine_types:
-                        eligible_candidates.append((j, op, op_idx))
+                    aset = allowed_sets[jid][op_idx]
+                    if (
+                        machine.machine_type in aset
+                        or machine.machine_id in aset
+                        or "ANY" in aset
+                    ):
+                        eligible_candidates.append((j, j.operations[op_idx], op_idx))
 
             if not eligible_candidates:
-                # No compatible jobs left for this machine, advance machine time
-                machine_available_time[ready_machine_id] += 10.0
+                # Check if machine can ever run any remaining operation
+                has_future = False
+                for jid in pending_job_ids:
+                    j = job_lookup[jid]
+                    for idx in range(job_next_op_idx[jid], len(j.operations)):
+                        aset = allowed_sets[jid][idx]
+                        if (
+                            machine.machine_type in aset
+                            or machine.machine_id in aset
+                            or "ANY" in aset
+                        ):
+                            has_future = True
+                            break
+                    if has_future:
+                        break
+
+                if not has_future:
+                    machine_available_time[ready_machine_id] = float("inf")
+                    if min(machine_available_time.values()) == float("inf"):
+                        break
+                    continue
+
+                future_ready = []
+                for jid in pending_job_ids:
+                    j = job_lookup[jid]
+                    oi = job_next_op_idx[jid]
+                    if oi < len(j.operations):
+                        aset = allowed_sets[jid][oi]
+                        if (
+                            machine.machine_type in aset
+                            or machine.machine_id in aset
+                            or "ANY" in aset
+                        ):
+                            future_ready.append(job_ready_time[jid])
+                if future_ready:
+                    machine_available_time[ready_machine_id] = max(
+                        machine_available_time[ready_machine_id] + 1.0,
+                        min(future_ready),
+                    )
+                else:
+                    machine_available_time[ready_machine_id] += 10.0
                 continue
 
-            # Check if any candidate has arrived by m_time or lookahead horizon
-            # If all candidates arrive in future, advance machine time to earliest ready time
+            # Advance machine clock to earliest candidate arrival if needed
             earliest_job_ready = min(
                 job_ready_time[j.job_id] for (j, _op, _idx) in eligible_candidates
             )
             if earliest_job_ready > m_time:
-                # Filter candidates that arrive within a tight lookahead window
                 lookahead_time = earliest_job_ready
             else:
                 lookahead_time = m_time + 30.0
@@ -181,13 +277,8 @@ class EnergyAwareAIScheduler:
 
                 t_start_cut = t_start_setup + setup_minutes
 
-                # Remaining work for this job (including downstream ops and estimated setups)
-                downstream_ops = j.operations[op_idx + 1 :]
-                downstream_proc = sum(o.nominal_cycle_minutes for o in downstream_ops)
-                downstream_est_setups = len(downstream_ops) * 8.0
-                total_remaining_work = (
-                    setup_minutes + op.nominal_cycle_minutes + downstream_proc + downstream_est_setups
-                )
+                # Remaining work from pre-computed table
+                total_remaining_work = setup_minutes + downstream_work[j.job_id][op_idx]
 
                 # Critical Ratio (CR) & Slack
                 slack = j.due_date - (t_start_setup + total_remaining_work)
@@ -196,51 +287,43 @@ class EnergyAwareAIScheduler:
                 # Urgency Scoring (Nonlinear escalation for tight deadlines to maximize OTD)
                 w_job = float(j.priority)
                 if critical_ratio <= 1.0:
-                    # Job is late or in severe danger: maximum urgency
                     urgency_score = 5000.0 * w_job / max(0.05, critical_ratio) + 200.0 * abs(min(0.0, slack))
                 elif critical_ratio <= 1.5:
                     urgency_score = 1500.0 * w_job / critical_ratio + 50.0 * math.exp(-slack / max(10.0, avg_cycle_time))
                 else:
                     urgency_score = 200.0 * (w_job / critical_ratio) * math.exp(-slack / (3.0 * avg_cycle_time))
 
-                # Setup preservation bonus: if fixture already mounted, save setup downtime
+                # Setup preservation bonus
                 setup_score = 0.0
                 if setup_minutes == 0.0:
-                    # Give high bonus for same fixture unless another job is critically late
                     setup_score = 250.0
                 else:
                     setup_score = -self.w_setup * setup_minutes
 
-                # Machine Specialization Preservation:
-                # If op only requires 3-axis STD, avoid taking 5-axis unless needed
+                # Machine Specialization Preservation
                 specialty_penalty = 0.0
                 if machine.machine_type == "VMC_5AXIS_HIGH_SPEED" and "VMC_3AXIS_STD" in op.allowed_machine_types:
                     specialty_penalty = 120.0
 
-                # Power Prediction & Peak Shaving
-                pred_power = EmpiricalPowerModel.predict_power(
-                    spindle_speed_rpm=op.required_rpm,
-                    feed_rate_mm_min=380.0,
-                    depth_of_cut_mm=3.0,
-                    material=j.material,
-                )
+                # Power Prediction (cached)
+                pred_power_kw = _cached_power_kw(op.required_rpm, j.material)
 
-                # Fleet Active Power Check at start time
+                # Fleet Active Power Check at start time (O(M) via latest task per machine)
                 active_fleet_kw = sum(
                     task.power_kw
-                    for task in scheduled_tasks
-                    if task.t_start <= t_start_cut < task.t_end
+                    for task in last_machine_task.values()
+                    if task and task.t_start <= t_start_cut < task.t_end
                 )
-                future_fleet_kw = active_fleet_kw + pred_power.total_power_kw
+                future_fleet_kw = active_fleet_kw + pred_power_kw
                 peak_penalty = 0.0
                 if future_fleet_kw > self.peak_power_limit_kw:
                     peak_penalty = (future_fleet_kw - self.peak_power_limit_kw) * self.w_peak_power * 10.0
 
                 # Energy component
-                energy_kwh = pred_power.total_power_kw * (op.nominal_cycle_minutes / 60.0)
+                energy_kwh = pred_power_kw * (op.nominal_cycle_minutes / 60.0)
                 energy_cost = energy_kwh * self.w_energy
 
-                # Idle waiting penalty if machine has to wait for job arrival
+                # Idle waiting penalty
                 idle_wait = max(0.0, t_job_avail - m_time)
                 wait_penalty = idle_wait * 1.5
 
@@ -258,7 +341,7 @@ class EnergyAwareAIScheduler:
                     best_score = score
                     best_selection = (j, op, op_idx)
                     best_setup = setup_minutes
-                    best_power_kw = pred_power.total_power_kw
+                    best_power_kw = pred_power_kw
                     best_t_start = t_start_setup
 
             if best_selection is None:
@@ -294,6 +377,7 @@ class EnergyAwareAIScheduler:
                 lateness_minutes=round(job_lateness, 1),
             )
             scheduled_tasks.append(task)
+            last_machine_task[ready_machine_id] = task
             machine_sequences[ready_machine_id].append(f"{sel_job.job_id}:{sel_op.name}")
             machine_available_time[ready_machine_id] = t_end
             machine_active_fixture[ready_machine_id] = sel_op.required_fixture
@@ -301,6 +385,10 @@ class EnergyAwareAIScheduler:
             # Update job state for downstream operations
             job_next_op_idx[sel_job.job_id] = sel_op_idx + 1
             job_ready_time[sel_job.job_id] = t_end + self.transfer_time_minutes
+
+            # Remove completed jobs from pending set
+            if is_final_op:
+                pending_job_ids.discard(sel_job.job_id)
 
         # Metrics computation across all jobs
         makespan = max(t.t_end for t in scheduled_tasks) if scheduled_tasks else 0.0
@@ -314,24 +402,31 @@ class EnergyAwareAIScheduler:
         on_time_jobs = sum(1 for lat in job_tardiness_list if lat <= 0.0)
         otd_pct = (on_time_jobs / len(all_jobs) * 100.0) if all_jobs else 100.0
 
-        # Construct High-Resolution Fleet Electrical Load Curve
-        time_grid = [float(t) for t in range(0, int(makespan) + 30, int(time_step_minutes))]
+        # Construct Fleet Electrical Load Curve (Adaptive step & pre-grouped intervals)
+        step = max(float(time_step_minutes), makespan / 400.0) if makespan > 0 else 5.0
+        time_grid = [float(t) for t in np.arange(0, makespan + step, step)]
         power_profile: list[tuple[float, float]] = []
         peak_observed = 0.0
 
+        # Pre-group cutting intervals per machine for O(T * M) fast scan
+        machine_cutting: dict[str, list[tuple[float, float, float]]] = {
+            m.machine_id: [] for m in self.machines
+        }
+        for tsk in scheduled_tasks:
+            c_s = tsk.t_start + tsk.setup_minutes
+            c_e = tsk.t_end
+            if c_e > c_s:
+                machine_cutting[tsk.machine_id].append((c_s, c_e, tsk.power_kw))
+
         for t_val in time_grid:
-            p_instant = sum(
-                task.power_kw
-                for task in scheduled_tasks
-                if (task.t_start + task.setup_minutes) <= t_val <= task.t_end
-            )
-            active_m_count = len(
-                {
-                    task.machine_id
-                    for task in scheduled_tasks
-                    if (task.t_start + task.setup_minutes) <= t_val <= task.t_end
-                }
-            )
+            p_instant = 0.0
+            active_m_count = 0
+            for mid, intervals in machine_cutting.items():
+                for c_s, c_e, p_kw in intervals:
+                    if c_s <= t_val <= c_e:
+                        p_instant += p_kw
+                        active_m_count += 1
+                        break
             idle_m_count = len(self.machines) - active_m_count
             p_fleet = p_instant + idle_m_count * EmpiricalPowerModel.BASE_STANDBY_KW
             power_profile.append((t_val, round(p_fleet, 2)))
@@ -364,3 +459,4 @@ class EnergyAwareAIScheduler:
             machine_sequences=machine_sequences,
             power_profile=power_profile,
         )
+

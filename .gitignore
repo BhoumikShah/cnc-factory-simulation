@@ -43,6 +43,7 @@ htmlcov/
 *.sqlite
 *.sqlite3
 *.db
+*.log
 outputs/
 reports/
 logs/

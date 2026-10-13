@@ -27,6 +27,13 @@ class IEDashboardGenerator:
             fig.update_layout(title="No Scheduled Tasks Available", template="plotly_dark")
             return fig
 
+        if len(tasks) > 800:
+            display_tasks = tasks[:800]
+            title_suffix = f" (Showing first 800 of {len(tasks)} tasks)"
+        else:
+            display_tasks = tasks
+            title_suffix = ""
+
         # Color palette by fixture/part
         color_map = {
             "VISE_6INCH_DUAL": "#00E676",
@@ -35,10 +42,13 @@ class IEDashboardGenerator:
             "VACUUM_FIXTURE_PLATE": "#E040FB",
         }
 
-        # Group tasks by fixture
-        fixtures = sorted({t.fixture_id for t in tasks})
-        for fix in fixtures:
-            fix_tasks = [t for t in tasks if t.fixture_id == fix]
+        # Group tasks by fixture in a single pass for speed
+        tasks_by_fixture: dict[str, list[AIScheduledTask]] = {}
+        for t in display_tasks:
+            tasks_by_fixture.setdefault(t.fixture_id, []).append(t)
+
+        for fix in sorted(tasks_by_fixture.keys()):
+            fix_tasks = tasks_by_fixture[fix]
             x_durations = [t.duration_minutes for t in fix_tasks]
             x_starts = [t.t_start + t.setup_minutes for t in fix_tasks]
             y_machines = [t.machine_id for t in fix_tasks]
@@ -67,7 +77,7 @@ class IEDashboardGenerator:
             )
 
         fig.update_layout(
-            title="AI Optimal Production Schedule (Spindle Operations & Fixture Grouping)",
+            title=f"AI Optimal Production Schedule (Spindle Operations & Fixture Grouping){title_suffix}",
             barmode="stack",
             xaxis={"title": "Time (minutes)", "showgrid": True, "gridcolor": "rgba(255,255,255,0.1)"},
             yaxis={"title": "CNC VMC Machine", "autorange": "reversed"},
