@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+import sys
+
+# Ensure src directory is in sys.path when run directly
+_SRC_DIR = Path(__file__).resolve().parents[2]
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
